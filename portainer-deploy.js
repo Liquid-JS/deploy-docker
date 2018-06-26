@@ -2,6 +2,10 @@
 const args = require('yargs')
     .command('$0 [stack] [compose] [url]', 'deploy stack', (yargs) => {
         yargs
+            .option('endpoint-id', {
+                alias: 'e',
+                default: 1
+            })
             .positional('stack', {
                 describe: 'stack name'
             })
@@ -18,6 +22,7 @@ const args = require('yargs')
 
         const stack = argv.stack
         const endpoint = new url.URL(argv.url)
+        const endpointId = parseInt(argv.e) || 1
         const compose = await new Promise((resolve, reject) => fs.readFile(argv.compose, 'utf8', (err, data) => {
             if (err)
                 return reject(err)
@@ -29,23 +34,25 @@ const args = require('yargs')
             "Password": process.env.PORTAINER_PASS || "password"
         })).jwt
 
-        const stacks = await request(getPath(endpoint, 'endpoints/1/stacks'), '', token, 'get')
+        const stacks = await request(getPath(endpoint, 'stacks'), '', token, 'get')
         const stackId = (stacks.find(obj => obj.Name == stack) || {}).Id
-        if (stackId)
-            console.log(await request(getPath(endpoint, 'endpoints/1/stacks', stackId), {
+        if (stackId) {
+            const ep = getPath(endpoint, 'stacks', stackId)
+            ep.search = 'endpointId=' + endpointId
+            console.log(await request(ep, {
                 StackFileContent: compose,
                 Prune: true,
                 Env: []
             }, token, 'put'))
-        else {
-            const swarm = (await request(getPath(endpoint, 'endpoints/1/docker/swarm'), '', token, 'get')).ID
-            const ep = getPath(endpoint, 'endpoints/1/stacks')
-            ep.search = 'method=string'
+        } else {
+            const swarm = (await request(getPath(endpoint, 'endpoints', endpointId, 'docker/swarm'), '', token, 'get')).ID
+            const ep = getPath(endpoint, 'stacks')
+            ep.search = 'method=string&type=1&endpointId=' + endpointId
             console.log(await request(ep, {
                 StackFileContent: compose,
                 Name: stack,
-                SwarmID: swarm,
-                Env: []
+                Env: [],
+                SwarmId: swarm
             }, token, 'post'))
         }
     })
@@ -83,6 +90,6 @@ function getPath(endpoint, ...params) {
     const path = require('path')
     const url = require('url')
     const ep = new url.URL(endpoint.toString())
-    ep.pathname = path.normalize(path.join(ep.pathname, ...params)).replace(/\\/g, '/')
+    ep.pathname = path.normalize(path.join(ep.pathname, ...params.map(p => '' + (p || '')))).replace(/\\/g, '/')
     return ep
 }
