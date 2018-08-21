@@ -1,6 +1,6 @@
 FROM debian:stretch
 
-ENV DOCKER=18.03.1-ce
+ENV DOCKER=18.06.0-ce
 
 WORKDIR /
 
@@ -26,7 +26,7 @@ COPY --from=0 /etc/apt /etc/apt
 COPY --from=0 /var/lib/apt/lists/ /var/lib/apt/lists/
 
 RUN apt-get install -y apt-transport-https python-pip \
-    && apt-get install -y --no-install-recommends python nodejs google-cloud-sdk kubectl \
+    && apt-get install -y --no-install-recommends python nodejs google-cloud-sdk kubectl git \
     && pip install -U --no-cache-dir awscli \
     && NODE_ENV=production npm install yargs \
     && apt-get purge -y --auto-remove apt-transport-https python-pip
